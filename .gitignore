@@ -1,2 +1,11 @@
-.ipynb_checkpoints/
-data/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data Files
+data/processed/*
+data/raw/*.
