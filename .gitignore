@@ -8,4 +8,6 @@ __pycache__/
 
 # Data Files
 data/processed/*
+data/raw/*
+!data/raw/*/
 !data/raw/*.gz
