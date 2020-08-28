@@ -5,15 +5,77 @@ from __future__ import print_function
 import os, sys
 import matplotlib.pyplot as plt
 import numpy as np
-
 from PIL import Image
-from mnistDatasetCsv import myMnistDataset
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
+
+
+class myMnistDataset(Dataset):
+    
+    csvPath = 'D:\\GitWork\\mnist\\processed\\'
+    
+    training_file = 'mnist_train.csv'
+    test_file = 'mnist_test.csv'
+    
+    classes = ['0 - zero', '1 - one', '2 - two', '3 - three', '4 - four',
+               '5 - five', '6 - six', '7 - seven', '8 - eight', '9 - nine']
+    
+    def __init__(self, train=True, transform=None, target_transform=None):
+        self.transform = transform
+        self.target_transform = target_transform
+        self.train = train
+        
+        if self.train:
+            data_file = self.training_file
+        else:
+            data_file = self.test_file
+        data = np.loadtxt(os.path.join(self.csvPath, data_file), delimiter=',', dtype=np.float32)
+        
+        self.len = data.shape[0]
+        imgs = torch.from_numpy(data[:, 1:])
+        self.images = imgs.type(torch.uint8).view(self.len, 28, 28)
+        
+        lbls = torch.from_numpy(data[:, [0]])
+        self.labels = lbls.view(self.len)
+
+    def __getitem__(self, index):
+        img, lbl = self.images[index], int(self.labels[index])
+        
+        # doing this so that it is consistent with all other datasets
+        # to return a PIL Image
+        img = Image.fromarray(img.numpy(), mode='L')
+        
+        if self.transform is not None:
+            img = self.transform(img)
+        
+        if self.target_transform is not None:
+            lbl = self.target_transform(lbl)
+            
+        return img, lbl
+
+    def __len__(self):
+        return self.len
+    
+    @property
+    def train_labels(self):
+        return self.labels
+
+    @property
+    def test_labels(self):
+        return self.labels
+
+    @property
+    def train_data(self):
+        return self.images
+
+    @property
+    def test_data(self):
+        return self.images
+
 
 # Model
 class Net(nn.Module):
