@@ -5,11 +5,14 @@ __pycache__/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+Untitled.ipynb
 
 # Data Files
-data/*
-!data/raw/*/
-!data/raw/*.gz
+processed/
+raw/*
+!raw/*/
+!raw/*.gz
 
 csvFiles/
 bak/
+
