@@ -5,6 +5,7 @@ __pycache__/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+ipynb/.ipynb_checkpoints/
 Untitled.ipynb
 
 # Data Files
