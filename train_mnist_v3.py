@@ -159,7 +159,6 @@ def test(validLoader, device, net):
                 class_total[label] += 1
                 # print(class_correct)
                 # print(class_total)
-
     print()
     for i in range(10):
         print('Accuracy of %d: %3f' % (i, (class_correct[i]/class_total[i])))
