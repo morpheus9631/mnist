@@ -9,6 +9,9 @@ Untitled.ipynb
 
 # Data Files
 processed/
+!processed/*/
+!processed/*.pt
+
 raw/*
 !raw/*/
 !raw/*.gz
