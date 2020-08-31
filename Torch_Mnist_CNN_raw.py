@@ -2,15 +2,15 @@
 
 from __future__ import print_function, division  
 
-import argparse
 import os, sys
+import argparse
 import codecs
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 
-from configs.config_train import  get_cfg_defaults
-from models.model_v3 import Net
 from PIL import Image
+from configs.config_train import  get_cfg_defaults
+from datasets.dataset_raw import myMnistDataset
 
 import torch
 import torch.nn as nn
@@ -28,72 +28,21 @@ def parse_args():
                         help="Configuration filename.")
     return parser.parse_args()
 
-def get_int(b):
-    return int(codecs.encode(b, 'hex'), 16)
 
-def read_image_file(path):
-    with open(path, 'rb') as f:
-        data = f.read()
-        assert get_int(data[:4]) == 2051
-        length = get_int(data[4:8])
-        num_rows = get_int(data[8:12])
-        num_cols = get_int(data[12:16])
-        parsed = np.frombuffer(data, dtype=np.uint8, offset=16).copy()
-        return torch.from_numpy(parsed).view(length, num_rows, num_cols)
-    
-def read_label_file(path):
-    with open(path, 'rb') as f:
-        data = f.read()
-        assert get_int(data[:4]) == 2049
-        length = get_int(data[4:8])
-        parsed = np.frombuffer(data, dtype=np.uint8, offset=8).copy()
-        return torch.from_numpy(parsed).view(length).long()
+class Net(nn.Module):
+    def __init__(self, insize, size1, size2, outsize):
+        super(Net, self).__init__()
+        self.main = nn.Sequential(
+            nn.Linear(in_features=insize, out_features=size1),
+            nn.ReLU(),
+            nn.Linear(in_features=size1, out_features=size2),
+            nn.ReLU(),
+            nn.Linear(in_features=size2, out_features=outsize),
+            nn.LogSoftmax(dim=1)
+        )
 
-class myMnistDataset(Dataset):
-    
-    Resources = {
-        'train': [ "train-images-idx3-ubyte", "train-labels-idx1-ubyte" ],
-        'valid': [ "t10k-images-idx3-ubyte",  "t10k-labels-idx1-ubyte"  ]
-    }
-    
-    def __init__(self, path, train=True, transform=None, debug=True):
-        self.datapath = path
-        self.train = train
-        self.transform = transform
-        
-        datafiles = self.Resources['train'] if self.train else self.Resources['valid']
-        self.imgs = read_image_file(os.path.join(self.datapath, datafiles[0]))
-        self.lbls = read_label_file(os.path.join(self.datapath, datafiles[1]))
-        self.len = len(self.imgs)
-
-        if debug: 
-            phase_name = 'train' if self.train else 'valid'
-            print('{} set:\n  images: {}\n  labels: {}'.format(
-                phase_name, self.imgs.shape, self.lbls.shape)
-            )
-  
-    def __getitem__(self, index):
-        img, lbl = self.imgs[index], int(self.lbls[index])
-        
-        # doing this so that it is consistent with all other datasets
-        # to return a PIL Image
-        img = Image.fromarray(img.numpy(), mode='L')
-        
-        if self.transform is not None:
-            img = self.transform(img)
-        
-        return img, lbl
-                          
-    def __len__(self):
-        return self.len
-    
-    @property
-    def images(self):
-        return self.imgs
-
-    @property
-    def labels(self):
-        return self.lbls
+    def forward(self, input):
+        return self.main(input)
 
 
 def train(net, lr, momentum, epochs, trainLoader, dev, bsize):
