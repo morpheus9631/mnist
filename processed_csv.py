@@ -1,151 +1,86 @@
 from __future__ import print_function, division  
 
 import os, sys
+import argparse
 import codecs
 import gzip
 import numpy as np
 import shutil
 import time
-
 import torch
+from configs.config_train import  get_cfg_defaults
 
 
-# If all files exist then return 'True' else 'False'
-def isExistAllFiles(path, files, debug=False):
-    isExistList = [os.path.exists(os.path.join(path, f)) for f in files]
-    if debug: print(isExistList)
-    return all(isExistList)
+def parse_args():
+    parser = argparse.ArgumentParser(description='Ants and Bees by PyTorch')
+    parser.add_argument("--cfg", type=str, default="configs/config_train.yaml",
+                        help="Configuration filename.")
+    return parser.parse_args()
 
-def get_int(b):
-    return int(codecs.encode(b, 'hex'), 16)
 
-def open_maybe_compressed_file(path):
-    """Return a file object that possibly decompresses 'path' on the fly.
-       Decompression occurs when argument `path` is a string and ends with '.gz' or '.xz'.
-    """
-    if not isinstance(path, torch._six.string_classes):
-        return path
-    if path.endswith('.gz'):
-        import gzip
-        return gzip.open(path, 'rb')
-    if path.endswith('.xz'):
-        import lzma
-        return lzma.open(path, 'rb')
-    return open(path, 'rb')
+def convert(imgf, labelf, outf, n):
+    f = open(imgf, "rb")
+    o = open(outf, "w")
+    l = open(labelf, "rb")
 
-def read_sn3_pascalvincent_tensor(path, strict=True):
-    """Read a SN3 file in "Pascal Vincent" format (Lush file 'libidx/idx-io.lsh').
-       Argument may be a filename, compressed filename, or file object.
-    """
-    # typemap
-    if not hasattr(read_sn3_pascalvincent_tensor, 'typemap'):
-        read_sn3_pascalvincent_tensor.typemap = {
-            8: (torch.uint8, np.uint8, np.uint8),
-            9: (torch.int8, np.int8, np.int8),
-            11: (torch.int16, np.dtype('>i2'), 'i2'),
-            12: (torch.int32, np.dtype('>i4'), 'i4'),
-            13: (torch.float32, np.dtype('>f4'), 'f4'),
-            14: (torch.float64, np.dtype('>f8'), 'f8')
-        }
-        
-    # read
-    with open_maybe_compressed_file(path) as f:
-        data = f.read()
+    f.read(16)
+    l.read(8)
+    images = []
 
-    # parse
-    magic = get_int(data[0:4])
-    nd = magic % 256
-    ty = magic // 256
-    assert nd >= 1 and nd <= 3
-    assert ty >= 8 and ty <= 14
-    m = read_sn3_pascalvincent_tensor.typemap[ty]
-    s = [get_int(data[4 * (i + 1): 4 * (i + 2)]) for i in range(nd)]
-    parsed = np.frombuffer(data, dtype=m[1], offset=(4 * (nd + 1)))
-    assert parsed.shape[0] == np.prod(s) or not strict
-    return torch.from_numpy(parsed.astype(m[2], copy=False)).view(*s)
+    for i in range(n):
+        image = [ord(l.read(1))]
+        for j in range(28*28):
+            image.append(ord(f.read(1)))
+        images.append(image)
 
-def read_image_file(path):
-    with open(path, 'rb') as f:
-        x = read_sn3_pascalvincent_tensor(f, strict=False)
-    assert(x.dtype == torch.uint8)
-    assert(x.ndimension() == 3)
-    return x
-
-def read_label_file(path):
-    with open(path, 'rb') as f:
-        x = read_sn3_pascalvincent_tensor(f, strict=False)
-    assert(x.dtype == torch.uint8)
-    assert(x.ndimension() == 1)
-    return x.long()
-
-def createProcessedDataFiles(inPath, inFiles, outPath, outFiles):
-    training_set = (
-        read_image_file(os.path.join(inPath, inFiles[0])),
-        read_label_file(os.path.join(inPath, inFiles[1]))
-    )
-    test_set = (
-        read_image_file(os.path.join(inPath, inFiles[2])),
-        read_label_file(os.path.join(inPath, inFiles[3]))
-    )
-    with open(os.path.join(outPath, outFiles[0]), 'wb') as f:
-        torch.save(training_set, f)
-    with open(os.path.join(outPath, outFiles[1]), 'wb') as f:
-        torch.save(test_set, f)
-    return
-
-def decompressDataFiles(path_raw, datafiles):
-    for f in datafiles:
-        inFile  = os.path.join(path_raw, f)
-        outFile = os.path.join(path_raw, f.replace('.gz', ''))
-        with gzip.open(inFile, 'r') as f_in, open(outFile, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)      
-    return
+    for image in images:
+        o.write(",".join(str(pix) for pix in image)+"\n")
+    f.close()
+    o.close()
+    l.close()
+   
 
 def main():
-    RawPath = 'D:\\GitWork\\mnist\\raw\\'
-    ProcessedPath = 'D:\\GitWork\\mnist\\processed\\'
+    args = parse_args()
+    print(args)
+
+    cfg = get_cfg_defaults()
+    cfg.merge_from_file(args.cfg)
+    cfg.freeze()
+    print('\n', cfg)
+
+    RawPath = cfg.DATA.RAW_PATH
+    ProcessedPath = cfg.DATA.PROCESSED_PATH
 
     if not os.path.exists(ProcessedPath):
         os.makedirs(ProcessedPath)
 
-    Resources = [
-        "train-images-idx3-ubyte.gz", 
-        "train-labels-idx1-ubyte.gz",
-        "t10k-images-idx3-ubyte.gz",
-        "t10k-labels-idx1-ubyte.gz"
-    ]
+    resources = [{ 
+            "image": "train-images-idx3-ubyte", 
+            "label": "train-labels-idx1-ubyte",
+            "count": 60000,
+            "outFname": "mnist_train.csv"
+        }, {
+            "image": "t10k-images-idx3-ubyte",  
+            "label": "t10k-labels-idx1-ubyte",
+            "count": 10000,
+            "outFname": "mnist_test.csv"
+        }]
 
-    dataFiles  = [f.replace('.gz', '') for f in Resources]
-    
-    ptFiles = [ 'training.pt', 'test.pt' ]
-
-    isExistPtFiles = isExistAllFiles(ProcessedPath, ptFiles)
-    print('Is *.pt exist? ', isExistPtFiles)
-    
-    if not isExistPtFiles:
-        isExistDataFiles = isExistAllFiles(RawPath, dataFiles)
-        if not isExistDataFiles:
-            isExistResources = isExistAllFiles(RawPath, Resources)
-            if not isExistResources:
-                print('Resources not exist, system exit...')
-                sys.exit(0)
-            
-            print('Data files not exist, decompressing...')
-            decompressDataFiles(RawPath, Resources)
-
-            isExistDataFiles = isExistAllFiles(RawPath, dataFiles)
-            if not isExistDataFiles:
-                print('Data files not exist, system exit...')
-                sys.exit(0)
-            
-            print('Data files decompressed.')
+    for r in resources:
+        proc_name = r['outFname']
+        print("\n'{}' processing...".format(proc_name))
         
-        createProcessedDataFiles(RawPath, dataFiles, ProcessedPath, ptFiles)
+        img_path = os.path.join(RawPath, r['image'])
+        lbl_path = os.path.join(RawPath, r['label'])
+        out_path = os.path.join(ProcessedPath, r['outFname'])
+        cnt = r['count']
+        convert(img_path, lbl_path, out_path, cnt)
+        
+        print("'{}' processed.".format(proc_name))
 
-    for f in ptFiles:
-        isExist = os.path.exists(os.path.join(ProcessedPath, f))
-        print('{} exist: {}'.format(f, isExist))
-    
+    print('\ndone')
+
     return (0)
 
         

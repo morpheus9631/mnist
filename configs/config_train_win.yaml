@@ -1,0 +1,19 @@
+# config_train.yaml
+
+WORK:
+  PATH: "D:\\GitWork\\mnist\\"
+              
+DATA:
+  PATH: "D:\\GitWork\\mnist\\data\\"
+  RAW_PATH: "D:\\GitWork\\mnist\\data\\MNIST\\raw\\"
+  PROCESSED_PATH: "D:\\GitWork\\mnist\\data\\MNIST\\processed\\"
+
+TRAIN:
+  BATCH_SIZE: 100
+  INPUT_SIZE: 784
+  HIDDEN_SIZE1: 128
+  HIDDEN_SIZE2: 64
+  NUM_CLASSES: 10
+  NUM_EPOCHS: 3
+  LEARNING_RATE: 0.002
+  MOMENTUM: 0.9
