@@ -9,12 +9,9 @@ ipynb/.ipynb_checkpoints/
 Untitled.ipynb
 
 # Data Files
-data/MNIST/processed/
-!data/MNIST/processed/*/
+data/MNIST/processed/*
 !data/MNIST/processed/*.pt
-data/MNIST/raw/*
-!data/MNIST/raw/*/
-!data/MNIST/raw/*.gz
+data/MNIST/raw/*.gz
 
 bak/
 
